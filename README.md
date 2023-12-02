@@ -1,6 +1,6 @@
 # ReLUQP-py
 
-This is a Python implementation of the ReLU-QP solver from the paper "ReLU-QP: A GPU-Accelerated Quadratic Programming Solver for Model-Predictive Control".
+This is a Python implementation of the ReLU-QP solver from the paper "[ReLU-QP: A GPU-Accelerated Quadratic Programming Solver for Model-Predictive Control](https://arxiv.org/abs/2311.18056)".
 A Julia implementation can be found [here](https://github.com/RoboticExplorationLab/ReLUQP.jl).
 
 
