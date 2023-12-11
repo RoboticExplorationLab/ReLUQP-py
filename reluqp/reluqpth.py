@@ -9,13 +9,15 @@ class ReLU_Layer(torch.nn.Module):
     def __init__(self, QP=None, settings=Settings()):
         super(ReLU_Layer, self).__init__()
 
-        torch.set_default_dtype(settings.precision)
+        # torch.set_default_dtype(settings.precision)
+        torch.set_default_dtype(torch.float64)
         self.QP = QP
         self.settings = settings
         self.rhos = self.setup_rhos()
         
         self.W_ks, self.B_ks, self.b_ks = self.setup_matrices()
         self.clamp_inds = (self.QP.nx, self.QP.nx + self.QP.nc)
+        self.QP.to(device=settings.device, precision=settings.precision)
 
     def setup_rhos(self):
         """
@@ -34,7 +36,8 @@ class ReLU_Layer(torch.nn.Module):
                 rho = rho*stng.adaptive_rho_tolerance
             rhos.sort()
         # conver to torch tensor
-        rhos = torch.tensor(rhos, device=stng.device, dtype=stng.precision).contiguous()
+        # rhos = torch.tensor(rhos, device=stng.device, dtype=stng.precision).contiguous()
+        rhos = torch.tensor(rhos, device=stng.device).contiguous()
         return rhos
     
     def setup_matrices(self):
@@ -61,13 +64,13 @@ class ReLU_Layer(torch.nn.Module):
         
         # Other layer updates for each rho
         for rho_ind, rho_scalar in enumerate(self.rhos):
-            rho = rho_scalar * torch.ones(nc, device=stng.device, dtype=stng.precision).contiguous()
+            rho = rho_scalar * torch.ones(nc, device=stng.device).contiguous()
             rho[(u - l) <= stng.eq_tol] = rho_scalar * 1e3
             rho_inv = torch.diag(1.0 / rho)
-            rho = torch.diag(rho).to(device=stng.device, dtype=stng.precision).contiguous()
+            rho = torch.diag(rho).to(device=stng.device).contiguous()
             K = kkt_rhs_invs[rho_ind]
-            Ix = torch.eye(nx, device=stng.device, dtype=stng.precision).contiguous()
-            Ic = torch.eye(nc, device=stng.device, dtype=stng.precision).contiguous()
+            Ix = torch.eye(nx, device=stng.device).contiguous()
+            Ic = torch.eye(nc, device=stng.device).contiguous()
             W_ks[rho_ind] = torch.cat([
                 torch.cat([ K @ (sigma * Ix - A.T @ (rho @ A)),           2 * K @ A.T @ rho,            -K @ A.T], dim=1),
                 torch.cat([ A @ K @ (sigma * Ix - A.T @ (rho @ A)) + A,   2 * A @ K @ A.T @ rho - Ic,  -A @ K @ A.T + rho_inv], dim=1),
@@ -75,6 +78,12 @@ class ReLU_Layer(torch.nn.Module):
             ], dim=0).contiguous()
             B_ks[rho_ind] = torch.cat([-K, -A @ K, torch.zeros(nc, nx).to(g)], dim=0).contiguous()
             b_ks[rho_ind] = (B_ks[rho_ind] @ g).contiguous()
+
+            # convert to settings precision
+            W_ks[rho_ind] = W_ks[rho_ind].to(device=stng.device, dtype=stng.precision).contiguous()
+            B_ks[rho_ind] = B_ks[rho_ind].to(device=stng.device, dtype=stng.precision).contiguous()
+            b_ks[rho_ind] = b_ks[rho_ind].to(device=stng.device, dtype=stng.precision).contiguous()
+
         return W_ks, B_ks, b_ks
 
     def forward(self, input, idx):
@@ -113,8 +122,8 @@ class ReLU_QP(object):
                         max_iter=4000,
                         eps_abs=1e-3,
                         check_interval=25,
-                        device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
-                        precision= torch.float64):
+                        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+                        precision=torch.float64):
         """
         Setup ReLU-QP solver problem of the form
 
@@ -141,7 +150,7 @@ class ReLU_QP(object):
                                     device=device,
                                     precision=precision)
 
-        self.QP = QP(H=H, g=g, A=A, l=l, u=u)
+        self.QP = QP(H=H, g=g, A=A, l=l, u=u, device=self.settings.device, precision=torch.float64)
 
         self.layers = ReLU_Layer(QP=self.QP, settings=self.settings)
         
@@ -306,6 +315,8 @@ class ReLU_QP(object):
     
     @torch.jit.script
     def compute_residuals(H, A, g, x, z, lam, rho, rho_min: float, rho_max: float):
+    # def compute_residuals(self, H, A, g, x, z, lam, rho, rho_min: float, rho_max: float):
+        
         t1 = torch.matmul(A, x)
         t2 = torch.matmul(H, x)
         t3 = torch.matmul(A.T, lam)
@@ -319,6 +330,7 @@ class ReLU_QP(object):
     
     @torch.jit.script
     def compute_J(H=None, g=None, x=None):
+    # def compute_J(self, H=None, g=None, x=None):
         return 0.5*torch.dot(x,torch.matmul(H,x)) + torch.dot(g,x)
 
     def clear_primal_dual(self):

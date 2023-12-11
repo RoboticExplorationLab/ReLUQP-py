@@ -44,7 +44,7 @@ class Random_QP_benchmark():
 
         return model.results.info.run_time/1e6, model.results.x
 
-    def random_initial_solve(self, nx_min=10, nx_max=1000, n_sample=10, n_seeds=10, n_trials=1, tol=1e-4):
+    def random_initial_solve(self, nx_min=10, nx_max=1000, n_sample=10, n_seeds=10, tol=1e-4):
         nx_list = np.geomspace(nx_min, nx_max, num=n_sample)
         timing_dict = dict(nx_list=nx_list, osqp_mean=[], osqp_std=[],
                            reluqpth_mean=[], reluqpth_std=[],

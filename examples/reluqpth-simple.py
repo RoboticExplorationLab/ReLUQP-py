@@ -12,6 +12,7 @@ if __name__ == '__main__':
     results = model.solve()
 
     print(results.info.status)
+    print(results.info.iter)
     print(results.x)
 
     
