@@ -1,7 +1,7 @@
 
 import torch
 import numpy as np
-from src.python.classes import Settings, Results, Info, QP
+from reluqp.classes import Settings, Results, Info, QP
 # from utils import *
 import timeit
 # adopted from swami's implementation
@@ -99,7 +99,7 @@ class ReLU_QP(object):
         self.start = torch.cuda.Event(enable_timing=True)
         self.end = torch.cuda.Event(enable_timing=True)
 
-    def setup(self, H=None, g=None, A=None, l=None, u=None, 
+    def setup(self, H, g, A, l, u, 
                         verbose=False,
                         warm_starting=True,
                         scaling=False, #todo: implement scaling
@@ -141,7 +141,7 @@ class ReLU_QP(object):
                                     device=device,
                                     precision=precision)
 
-        self.QP = QP(H=H, g=g, A=A, l=l, u=u)
+        self.QP = QP(H, g, A, l, u)
 
         self.layers = ReLU_Layer(QP=self.QP, settings=self.settings)
         

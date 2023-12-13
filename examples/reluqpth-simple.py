@@ -8,7 +8,7 @@ if __name__ == '__main__':
     H, g, A, l, u, x_sol = utils.rand_qp(nx=nx, n_eq=n_eq, n_ineq=n_ineq)
 
     model = reluqp.ReLU_QP()
-    model.setup(H=H, g=g, A=A, l=l, u=u)
+    model.setup(H, g, A, l, u)
     results = model.solve()
 
     print(results.info.status)
