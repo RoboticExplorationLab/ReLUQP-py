@@ -286,6 +286,7 @@ class ReLU_QP(object):
 
         self.results.x = self.x
         self.results.z = self.z
+        self.results.lam = self.lam
 
         self.results.info.iter = iter
         self.results.info.status = status

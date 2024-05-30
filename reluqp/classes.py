@@ -89,8 +89,9 @@ class Info(object):
 
 
 class Results(object):
-    def __init__(self, x=None, z=None, info: Info=None):
+    def __init__(self, x=None, z=None, lam=None, info: Info=None):
         self.x = x
         self.z = z
+        self.lam = lam
         self.info = info
 
