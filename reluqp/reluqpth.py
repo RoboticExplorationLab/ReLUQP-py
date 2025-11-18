@@ -4,6 +4,8 @@ import numpy as np
 from reluqp.classes import Settings, Results, Info, QP
 # from utils import *
 import timeit
+import time
+
 # adopted from swami's implementation
 class ReLU_Layer(torch.nn.Module):
     def __init__(self, QP=None, settings=Settings()):
@@ -83,11 +85,10 @@ class ReLU_Layer(torch.nn.Module):
     
     @torch.jit.script
     def jit_forward(input, W, b, l, u, idx1: int, idx2: int):
-        torch.matmul(W, input, out=input)
-        input.add_(b)
-        input[idx1:idx2].clamp_(l, u)
-        return input
-    
+        out = torch.matmul(W, input) + b
+        out[idx1:idx2].clamp_(l, u)
+        return out
+
 
 class ReLU_QP(object):
     def __init__(self):
@@ -96,8 +97,9 @@ class ReLU_QP(object):
         self.info = Info()
         self.results = Results(info=self.info)
 
-        self.start = torch.cuda.Event(enable_timing=True)
-        self.end = torch.cuda.Event(enable_timing=True)
+        if torch.cuda.is_available():
+            self.start = torch.cuda.Event(enable_timing=True)
+            self.end = torch.cuda.Event(enable_timing=True)
 
     def setup(self, H, g, A, l, u, 
                         verbose=False,
@@ -123,7 +125,10 @@ class ReLU_QP(object):
 
         solver settings can be specified as additional keyword arguments
         """
-        self.start.record()
+        if torch.cuda.is_available():
+            self.start.record()
+        else:
+            self.start = time.time()
 
         self.settings = Settings(verbose=verbose,
                                     warm_starting=warm_starting,
@@ -152,9 +157,12 @@ class ReLU_QP(object):
 
         self.rho_ind = np.argmin(np.abs(self.layers.rhos.cpu().detach().numpy() - self.settings.rho))
 
-        self.end.record()
-        torch.cuda.synchronize()
-        self.results.info.setup_time = self.start.elapsed_time(self.end)/1000.0
+        if torch.cuda.is_available():
+            self.end.record()
+            torch.cuda.synchronize()
+            self.results.info.setup_time = self.start.elapsed_time(self.end)/1000.0
+        else:
+            self.results.info.setup_time = time.time() - self.start
 
     def update(self, g=None, l=None, u=None,
                Hx=None, Ax=None):
@@ -202,7 +210,10 @@ class ReLU_QP(object):
         """
         Solve QP Problem
         """
-        self.start.record()
+        if torch.cuda.is_available():
+            self.start.record()
+        else:
+            self.start = time.time()
 
         stng = self.settings
         nx, nc = self.QP.nx, self.QP.nc
@@ -295,9 +306,12 @@ class ReLU_QP(object):
         self.results.info.dua_res = dua_res
         self.results.info.rho_estimate = rho_estimate
         # self.info.update_time = update_time #todo: implement in update method
-        self.end.record()
-        torch.cuda.synchronize()
-        run_time = self.start.elapsed_time(self.end)/1000.0
+        if torch.cuda.is_available():
+            self.end.record()
+            torch.cuda.synchronize()
+            run_time = self.start.elapsed_time(self.end)/1000.0
+        else:
+            run_time = time.time() - self.start
         
         self.results.info.run_time = run_time
         self.results.info.solve_time = self.results.info.update_time + run_time
